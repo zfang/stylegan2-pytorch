@@ -194,11 +194,20 @@ def fill_statedict(state_dict, vars, size):
             },
         )
 
+    update(
+        state_dict,
+        {
+            'truncation_latent': torch.from_numpy(
+                vars['dlatent_avg'].value().eval()
+            )
+        },
+    )
+
     return state_dict
 
 
 if __name__ == '__main__':
-    device = 'cuda'
+    device = 'cpu'
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo', type=str, required=True)
@@ -245,6 +254,7 @@ if __name__ == '__main__':
 
     name = os.path.splitext(os.path.basename(args.path))[0]
     torch.save(ckpt, name + '.pt')
+    torch.save(g, name + '_g.pt')
 
     batch_size = {256: 16, 512: 9, 1024: 4}
     n_sample = batch_size.get(size, 25)
@@ -254,23 +264,22 @@ if __name__ == '__main__':
     z = np.random.RandomState(0).randn(n_sample, 512).astype('float32')
 
     with torch.no_grad():
-        img_pt, _ = g(
-            [torch.from_numpy(z).to(device)],
-            truncation=0.5,
-            truncation_latent=latent_avg.to(device),
+        img_pt = g(
+            styles=[torch.from_numpy(z).to(device)],
+            truncation=torch.tensor(.5),
         )
 
     Gs_kwargs = dnnlib.EasyDict()
     Gs_kwargs.randomize_noise = False
-    img_tf = g_ema.run(z, None, **Gs_kwargs)
-    img_tf = torch.from_numpy(img_tf).to(device)
+    #img_tf = g_ema.run(z, None, **Gs_kwargs)
+    #img_tf = torch.from_numpy(img_tf).to(device)
 
-    img_diff = ((img_pt + 1) / 2).clamp(0.0, 1.0) - ((img_tf.to(device) + 1) / 2).clamp(
-        0.0, 1.0
-    )
+    #img_diff = ((img_pt + 1) / 2).clamp(0.0, 1.0) - ((img_tf.to(device) + 1) / 2).clamp(
+    #    0.0, 1.0
+    #)
 
-    img_concat = torch.cat((img_tf, img_pt, img_diff), dim=0)
+    #img_concat = torch.cat((img_tf, img_pt, img_diff), dim=0)
     utils.save_image(
-        img_concat, name + '.png', nrow=n_sample, normalize=True, range=(-1, 1)
+        img_pt, name + '.png', nrow=n_sample, normalize=True, range=(-1, 1)
     )
 

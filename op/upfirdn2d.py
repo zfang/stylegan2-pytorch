@@ -3,9 +3,11 @@ import os
 import torch
 from torch.autograd import Function
 from torch.utils.cpp_extension import load
+import torch.nn.functional as F
 
 
 module_path = os.path.dirname(__file__)
+'''
 upfirdn2d_op = load(
     'upfirdn2d',
     sources=[
@@ -13,8 +15,10 @@ upfirdn2d_op = load(
         os.path.join(module_path, 'upfirdn2d_kernel.cu'),
     ],
 )
+'''
 
 
+'''
 class UpFirDn2dBackward(Function):
     @staticmethod
     def forward(
@@ -82,8 +86,10 @@ class UpFirDn2dBackward(Function):
         )
 
         return gradgrad_out, None, None, None, None, None, None, None, None
+'''
 
 
+'''
 class UpFirDn2d(Function):
     @staticmethod
     def forward(ctx, input, kernel, up, down, pad):
@@ -139,12 +145,16 @@ class UpFirDn2d(Function):
         )
 
         return grad_input, None, None, None, None
+'''
 
 
 def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
+    '''
     out = UpFirDn2d.apply(
         input, kernel, (up, up), (down, down), (pad[0], pad[1], pad[0], pad[1])
     )
+    '''
+    out = upfirdn2d_native(input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1])
 
     return out
 
@@ -152,6 +162,9 @@ def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
 def upfirdn2d_native(
     input, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1, pad_y0, pad_y1
 ):
+    
+    input = input.permute(0, 2, 3, 1)
+
     _, in_h, in_w, minor = input.shape
     kernel_h, kernel_w = kernel.shape
 
@@ -162,12 +175,14 @@ def upfirdn2d_native(
     out = F.pad(
         out, [0, 0, max(pad_x0, 0), max(pad_x1, 0), max(pad_y0, 0), max(pad_y1, 0)]
     )
-    out = out[
-        :,
-        max(-pad_y0, 0) : out.shape[1] - max(-pad_y1, 0),
-        max(-pad_x0, 0) : out.shape[2] - max(-pad_x1, 0),
-        :,
-    ]
+    # this seems to be their implementation of negative padding, which I don't think the model uses
+    # And it screws with onnx ("dynamic slice") so let's drop it
+    #out2 = out1[
+    #    :,
+    #    max(-pad_y0, 0) : out1.shape[1] - max(-pad_y1, 0),
+    #    max(-pad_x0, 0) : out1.shape[2] - max(-pad_x1, 0),
+    #    :,
+    #]
 
     out = out.permute(0, 3, 1, 2)
     out = out.reshape(
@@ -181,7 +196,9 @@ def upfirdn2d_native(
         in_h * up_y + pad_y0 + pad_y1 - kernel_h + 1,
         in_w * up_x + pad_x0 + pad_x1 - kernel_w + 1,
     )
-    out = out.permute(0, 2, 3, 1)
+    out = out[:, :, ::down_y, ::down_x]
+    #out = out.permute(0, 2, 3, 1)
+    #out = out[:, ::down_y, ::down_x, :]
+    return out
 
-    return out[:, ::down_y, ::down_x, :]
 

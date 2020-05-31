@@ -335,7 +335,6 @@ class StyledConv(nn.Module):
     def forward(self, input, style, noise=None):
         out = self.conv(input, style)
         out = self.noise(out, noise=noise)
-        # out = out + self.bias
         out = self.activate(out)
 
         return out
@@ -389,6 +388,7 @@ class Generator(nn.Module):
             )
 
         self.style = nn.Sequential(*layers)
+        self.truncation_latent = nn.Parameter(torch.randn(style_dim))
 
         self.channels = {
             4: 512,
@@ -474,34 +474,22 @@ class Generator(nn.Module):
     def forward(
         self,
         styles,
-        return_latents=False,
-        inject_index=None,
-        truncation=1,
-        truncation_latent=None,
-        input_is_latent=False,
-        noise=None,
-        randomize_noise=True,
+        truncation,
     ):
-        if not input_is_latent:
-            styles = [self.style(s) for s in styles]
+        styles = [self.style(s) for s in styles]
 
-        if noise is None:
-            if randomize_noise:
-                noise = [None] * self.num_layers
-            else:
-                noise = [
-                    getattr(self.noises, f'noise_{i}') for i in range(self.num_layers)
-                ]
+        noise = [
+            getattr(self.noises, f'noise_{i}') for i in range(self.num_layers)
+        ]
 
-        if truncation < 1:
-            style_t = []
+        style_t = []
 
-            for style in styles:
-                style_t.append(
-                    truncation_latent + truncation * (style - truncation_latent)
-                )
+        for style in styles:
+            style_t.append(
+                self.truncation_latent + truncation * (style - self.truncation_latent)
+            )
 
-            styles = style_t
+        styles = style_t
 
         if len(styles) < 2:
             inject_index = self.n_latent
@@ -513,8 +501,7 @@ class Generator(nn.Module):
                 latent = styles[0]
 
         else:
-            if inject_index is None:
-                inject_index = random.randint(1, self.n_latent - 1)
+            inject_index = random.randint(1, self.n_latent - 1)
 
             latent = styles[0].unsqueeze(1).repeat(1, inject_index, 1)
             latent2 = styles[1].unsqueeze(1).repeat(1, self.n_latent - inject_index, 1)
@@ -538,11 +525,7 @@ class Generator(nn.Module):
 
         image = skip
 
-        if return_latents:
-            return image, latent
-
-        else:
-            return image, None
+        return image
 
 
 class ConvLayer(nn.Sequential):
