@@ -133,3 +133,5 @@ wandb/
 *.lmdb/
 *.pkl
 *.pt
+
+sample/*.png
