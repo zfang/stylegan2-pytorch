@@ -475,6 +475,7 @@ class Generator(nn.Module):
         self,
         styles,
         truncation,
+        truncation_latent=None,
     ):
         styles = [self.style(s) for s in styles]
 
@@ -482,14 +483,18 @@ class Generator(nn.Module):
             getattr(self.noises, f'noise_{i}') for i in range(self.num_layers)
         ]
 
-        style_t = []
+        if truncation != 1:
+            if truncation_latent is None:
+                truncation_latent = self.truncation_latent
 
-        for style in styles:
-            style_t.append(
-                self.truncation_latent + truncation * (style - self.truncation_latent)
-            )
+            style_t = []
 
-        styles = style_t
+            for style in styles:
+                style_t.append(
+                    truncation_latent + truncation * (style - truncation_latent)
+                )
+
+            styles = style_t
 
         if len(styles) < 2:
             inject_index = self.n_latent
