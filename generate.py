@@ -15,7 +15,7 @@ def interpolate(sample_z, steps):
     out = np.zeros(((sample_z.shape[0] - 1) * steps, sample_z.shape[1]))
     out_index = 0
     for i in range(sample_z.shape[0] - 1):
-        for index in range(steps)
+        for index in range(steps):
             fraction = index / float(steps)
             out[out_index, :] = sample_z[i + 1, :] * fraction + sample_z[i, :] * (1 - fraction)
             out_index += 1
