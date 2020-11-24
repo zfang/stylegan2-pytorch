@@ -5,15 +5,17 @@ import os
 import numpy as np
 import torch
 from torchvision import utils
-from model import Generator
 from tqdm import tqdm
+
+from model import Generator
+from util import set_seed
 
 
 def interpolate(sample_z, steps):
     out = np.zeros(((sample_z.shape[0] - 1) * steps, sample_z.shape[1]))
     out_index = 0
     for i in range(sample_z.shape[0] - 1):
-        for index in range(steps):
+        for index in range(steps)
             fraction = index / float(steps)
             out[out_index, :] = sample_z[i + 1, :] * fraction + sample_z[i, :] * (1 - fraction)
             out_index += 1
@@ -60,8 +62,12 @@ def main():
     parser.add_argument('--self_contained_checkpoint', action='store_true')
     parser.add_argument('--interpolate_steps', type=int, default=0)
     parser.add_argument('--output_dir', type=str, default='sample/')
+    parser.add_argument('--seed', type=int)
 
     args = parser.parse_args()
+
+    if args.seed is not None:
+        set_seed(args.seed)
 
     args.ckpt = os.path.abspath(os.path.expanduser(args.ckpt))
 

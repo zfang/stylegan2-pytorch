@@ -136,3 +136,4 @@ wandb/
 
 sample/*.png
 tmp/
+.DS_Store
